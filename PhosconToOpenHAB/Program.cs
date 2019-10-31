@@ -135,7 +135,8 @@ namespace PhosconToOpenHAB
         private static void AddItem(StreamWriter itemsFile, PhosconBridge brige, DeconzSensor primaryDevice, string sensorName, DeconzSensor sensor, Thing thing, Thing.Channel channel)
         {
             string itemTag = string.IsNullOrEmpty(channel.ItemTag) ? string.Empty : $"[{channel.ItemTag}]";
-            itemsFile.WriteLine($"{channel.ItemType} phoscon_{sensorName}_{channel.ChannelType} \"{primaryDevice.Name} {channel.ChannelType}\" (g{primaryDevice.Name.Escape()}) {itemTag} {{channel=\"{brige.GetChannel(channel,thing,sensor)}\"}}");
+            string alexa = string.IsNullOrEmpty(channel.AlexaTpye) ? string.Empty : "alexa=\"" + channel.AlexaTpye + "\",";
+            itemsFile.WriteLine($"{channel.ItemType} phoscon_{sensorName}_{channel.ChannelType} \"{primaryDevice.Name} {channel.ChannelType}\" (g{primaryDevice.Name.Escape()}) {itemTag} {{{alexa}channel=\"{brige.GetChannel(channel,thing,sensor)}\"}}");
         }
 
         private static DconzBridge CreateDconzBridge(Options options, StreamWriter writer)

@@ -9,7 +9,7 @@ namespace PhosconToOpenHAB
     public class Thing
     {
         public static readonly Thing presencesensor = new Thing
-                    ("presencesensor", new Channel[] { new Channel { ChannelType = "presence", ItemType = "Switch", Description = "Status of presence: ON = presence; OFF = no-presence" } });
+                    ("presencesensor", new Channel[] { new Channel { ChannelType = "presence", ItemType = "Switch",AlexaTpye= "MotionSensor", Description = "Status of presence: ON = presence; OFF = no-presence" } });
         public static readonly Thing powersensor = new Thing
                     ("powersensor", new Channel[] {
                                 new Channel { ChannelType = "power", ItemType = "Number:Power" },
@@ -34,7 +34,7 @@ namespace PhosconToOpenHAB
 
         public static readonly Thing humiditysensor = new Thing
                    ("humiditysensor", new Channel[] {
-                       new Channel {ChannelType = "humidity", ItemType = "Number:Dimensionless" } });
+                       new Channel {ChannelType = "humidity", ItemType = "Number:Dimensionless",AlexaTpye="CurrentHumidity" } });
 
         public static readonly Thing pressuresensor = new Thing
                    ("pressuresensor", new Channel[] {
@@ -42,7 +42,7 @@ namespace PhosconToOpenHAB
 
         public static readonly Thing openclosesensor = new Thing
                    ("openclosesensor", new Channel[] {
-                       new Channel { ChannelType = "open", ItemType = "Contact" } });
+                       new Channel { ChannelType = "open", ItemType = "Contact", AlexaTpye="ContactSensor" } });
 
         public static readonly Thing waterleakagesensor = new Thing
                    ("waterleakagesensor", new Channel[] {
@@ -104,10 +104,11 @@ namespace PhosconToOpenHAB
             public static readonly Channel last_updated = new Channel { ChannelType = "last_updated", ItemType = "DateTime", Description = "Timestamp when the sensor was last updated" };
             public static readonly Channel battery_level = new Channel { ChannelType = "battery_level", ItemType = "Number", Description = "" };
             public static readonly Channel battery_low = new Channel { ChannelType = "battery_low", ItemType = "Switch", Description = "Battery level low: ON; OFF" };
-            public static readonly Channel temperature = new Channel { ChannelType = "temperature", ItemType = "Number:Temperature" };
+            public static readonly Channel temperature = new Channel { ChannelType = "temperature", AlexaTpye= "CurrentTemperature", ItemType = "Number:Temperature" };
 
             public static readonly Channel Switch = new Channel { ChannelType = "switch", ItemType = "Switch", ItemTag= "Switchable" };
 
+            public string AlexaTpye { get; set; }
             public string ItemType { get; set; }
             public string ChannelType { get; set; }
             public string Description { get; set; }
