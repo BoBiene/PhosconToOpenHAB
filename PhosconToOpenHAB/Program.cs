@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using CommandLine;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RestSharp;
 using System;
@@ -14,23 +15,31 @@ namespace PhosconToOpenHAB
     {
         static void Main(string[] args)
         {
-            var options = new Options();
-
-            if (!CommandLine.Parser.Default.ParseArguments(args, options))
-            {
-                Environment.Exit(CommandLine.Parser.DefaultExitCodeFail);
-            }
             try
             {
-                using (StreamWriter thingsFile = CreateConfigFile(options,"things\\phoscon.things"))
+                Parser.Default.ParseArguments<Options>(args)
+                 .WithParsed<Options>(Run);
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed: " + ex.ToString());
+            }
+        }
+
+        static void Run(Options options)
+        {
+            try
+            {
+                using (StreamWriter thingsFile = CreateConfigFile(options, Path.Combine("things","phoscon.things")))
                 {
-                    using (StreamWriter itemsFile = CreateConfigFile(options, "items\\phoscon.items"))
+                    using (StreamWriter itemsFile = CreateConfigFile(options, Path.Combine("items", "phoscon.items")))
                     {
                         using (var sitemapFile = CreateSitemap(options))
                         {
 
 
-                            Uri phosconBaseURL = new Uri($"http://{options.PhosconURL}/");
+                            Uri phosconBaseURL = new Uri($"http://{options.PhosconURL}:{options.HTTPPort}/");
 
                             RestRequest request = new RestRequest("api/{APIKEY}/{Method}");
                             request.AddUrlSegment("APIKEY", options.APIKey.ToString());
@@ -141,14 +150,14 @@ namespace PhosconToOpenHAB
 
         private static DconzBridge CreateDconzBridge(Options options, StreamWriter writer)
         {
-            writer.WriteLine($"Bridge deconz:deconz:phoscon \"Phoscon Deconz-Bridge\" [ host=\"{options.PhosconURL}\", apikey=\"{options.APIKey}\" ] {{");
+            writer.WriteLine($"Bridge deconz:deconz:phoscon \"Phoscon Deconz-Bridge\" [ host=\"{options.PhosconURL}\", httpPort=\"{options.HTTPPort}\", apikey=\"{options.APIKey}\" ] {{");
 
             return new DconzBridge(writer);
         }
 
         private static HueBridge CreateHueBridge(Options options, StreamWriter writer)
         {
-            writer.WriteLine($"Bridge hue:bridge:phoscon \"Phoscon Hue-Bridge\" [ ipAddress=\"{options.PhosconURL}\", userName=\"{options.APIKey}\" ] {{");
+            writer.WriteLine($"Bridge hue:bridge:phoscon \"Phoscon Hue-Bridge\" [ ipAddress=\"{options.PhosconURL}\", port=\"{options.HTTPPort}\", userName=\"{options.APIKey}\" ] {{");
 
             return new HueBridge(writer);
         }
@@ -248,7 +257,7 @@ namespace PhosconToOpenHAB
  
         private static StreamWriter CreateConfigFile(Options options, string strName)
         {
-            string strPath = Path.Combine(options.OutputDir, "conf\\" + strName);
+            string strPath = Path.Combine(options.OutputDir, Path.Combine("conf" , strName));
             FileInfo f = new FileInfo(strPath);
             if (!f.Directory.Exists)
                 f.Directory.Create();
@@ -260,7 +269,7 @@ namespace PhosconToOpenHAB
 
         private static Sitemap CreateSitemap(Options options)
         {
-            var writer = CreateConfigFile(options, "sitemaps\\phoscon.sitemap");
+            var writer = CreateConfigFile(options, Path.Combine("sitemaps","phoscon.sitemap"));
 
             writer.WriteLine("sitemap phoscon label=\"Phoscon\" {");
 

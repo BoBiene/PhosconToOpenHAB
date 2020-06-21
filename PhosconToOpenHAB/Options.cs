@@ -16,14 +16,13 @@ namespace PhosconToOpenHAB
         [Option('k', "apikey", Required = true, HelpText = "The API Key")]
         public string APIKey { get; set; }
 
-        [Option('o', "output", Required = false, DefaultValue = "", HelpText = "Target directory to create the openHAB files in.")]
+        [Option('p', "httpPort", Required = false, HelpText = "The httpPort", Default = "8080")]
+        public string HTTPPort { get; set; } = "8080";
+
+
+
+        [Option('o', "output", Required = false, Default = "", HelpText = "Target directory to create the openHAB files in.")]
         public string OutputDir { get; set; }
 
-        
-        [HelpOption]
-        public string GetUsage()
-        {
-            return HelpText.AutoBuild(this, current => HelpText.DefaultParsingErrorsHandler(this, current));
-        }
     }
 }
