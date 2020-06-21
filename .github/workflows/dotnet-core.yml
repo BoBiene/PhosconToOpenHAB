@@ -26,4 +26,4 @@ jobs:
       with:
         # Directory containing files to upload
         name: PhosconToOpenHAB
-        path: PhosconToOpenHAB/bin/Release/netcoreapp3.1/publish/
+        path: PhosconToOpenHAB/bin/Release/netcoreapp3.1/
