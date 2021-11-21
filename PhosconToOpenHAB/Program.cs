@@ -48,14 +48,7 @@ namespace PhosconToOpenHAB
                             RestClient client = new RestClient(phosconBaseURL);
 
                             var responseSonsors = client.Execute(request);
-                            //JObject jsonSensors = JObject.Parse(responseSonsors.Content);
-
                             var sensors = JsonConvert.DeserializeObject<Dictionary<string, DeconzSensor>>(responseSonsors.Content);
-
-                            using (var deconzBridge = CreateDconzBridge(options, thingsFile))
-                            {
-                                CreateItems(itemsFile, deconzBridge, sensors);
-                            }
 
                             request = new RestRequest("api/{APIKEY}/{Method}");
                             request.AddUrlSegment("APIKEY", options.APIKey.ToString());
@@ -66,10 +59,18 @@ namespace PhosconToOpenHAB
 
                             var lights = JsonConvert.DeserializeObject<Dictionary<string, DeconzSensor>>(responseLights.Content);
 
-                            using (var deconzBridge = CreateHueBridge(options, thingsFile))
+                            itemsFile.WriteLine($"//Battery powerd devices");
+                            itemsFile.WriteLine($"Group gPhosconBatteryPowered");
+
+                            using (var deconzBridge = CreateDconzBridge(options, thingsFile))
                             {
-                                CreateItems(itemsFile, deconzBridge, lights);
+                                CreateItems(itemsFile, deconzBridge, sensors,false);
+                                CreateItems(itemsFile, deconzBridge, lights,true);
                             }
+
+                  
+
+                         
                         }
                     }
                 }
@@ -82,21 +83,23 @@ namespace PhosconToOpenHAB
             }
         }
 
-        private static void CreateItems(StreamWriter itemsFile, PhosconBridge brige, Dictionary<string, DeconzSensor> sensors)
+        private static void CreateItems(StreamWriter itemsFile, PhosconBridge brige, Dictionary<string, DeconzSensor> sensors, bool blnLightOrSwitch)
         {
             foreach (var keyValue in sensors)
                 keyValue.Value.Id = Convert.ToInt32(keyValue.Key);
 
-            foreach (var device in sensors.Values.GroupBy((sensor) => sensor.DeviceId))
+            foreach (var device in sensors.Values.GroupBy((sensor) => sensor.DeviceId).OrderBy(grp => grp.Min(sensor => sensor.Id)))
             {
                 var deviceid = device.Key;
                 var devices = device.OrderBy((sensor) => sensor.Id);
-                var primaryDevice = device.First();
+                //var primaryDevice = devices.First();
 
-                if (Thing.TryGetThing(primaryDevice.Type, out Thing primaryThing))
+                if (Thing.TryGetThing(devices, out DeconzSensor primaryDevice, out Thing primaryThing))
                 {
                     itemsFile.WriteLine($"//{primaryDevice.Name}");
-                    itemsFile.WriteLine($"Group g{primaryDevice.Name.Escape()} \"{primaryDevice.Name}\"");
+                    var equiType = (primaryThing.EquipmentType != string.Empty) ? $"[\"{primaryThing.EquipmentType}\"] " : string.Empty;
+
+                    itemsFile.WriteLine($"Group g{primaryDevice.Name.Escape()} \"{primaryDevice.Name}\" {equiType}{{alexa=\"{primaryThing.AlexaType}\"}}");
 
                     var sensorName = primaryDevice.Name.Escape();
 
@@ -108,6 +111,9 @@ namespace PhosconToOpenHAB
                             foreach (var channel in thing.Channels)
                             {
                                 AddItem(itemsFile, brige, primaryDevice, sensorName, sensor, thing, channel);
+
+                                if(channel == Thing.Channel.brightness || channel ==  Thing.Channel.color)
+                                    AddItem(itemsFile, brige, primaryDevice, sensorName, sensor, thing, Thing.Channel.Switch, brige.GetChannel(channel, thing, sensor));
                             }
 
                             blnHasTempChannel |= thing.Channels.Contains(Thing.Channel.temperature);
@@ -122,11 +128,15 @@ namespace PhosconToOpenHAB
                     }
                     else { }
 
-                    AddItem(itemsFile, brige, primaryDevice, sensorName, primaryDevice, primaryThing, Thing.Channel.last_updated);
+                    if (!blnLightOrSwitch && primaryThing != Thing.daylightsensor)
+                    {
+                        AddItem(itemsFile, brige, primaryDevice, sensorName, primaryDevice, primaryThing, Thing.Channel.last_updated);
+                        AddItem(itemsFile, brige, primaryDevice, sensorName, primaryDevice, primaryThing, Thing.Channel.last_seen);
+                    }
 
                     if (primaryDevice.Config.ContainsKey("battery"))
                     {
-                        AddItem(itemsFile, brige, primaryDevice, sensorName, primaryDevice, primaryThing, Thing.Channel.battery_level);
+                        AddItem(itemsFile, brige, primaryDevice, $"g{primaryDevice.Name.Escape()},gPhosconBatteryPowered", sensorName, primaryDevice, primaryThing, Thing.Channel.battery_level);
                         AddItem(itemsFile, brige, primaryDevice, sensorName, primaryDevice, primaryThing, Thing.Channel.battery_low);
                     }
                     else { }
@@ -140,27 +150,34 @@ namespace PhosconToOpenHAB
 
             }
         }
-
         private static void AddItem(StreamWriter itemsFile, PhosconBridge brige, DeconzSensor primaryDevice, string sensorName, DeconzSensor sensor, Thing thing, Thing.Channel channel)
         {
-            string itemTag = string.IsNullOrEmpty(channel.ItemTag) ? string.Empty : $"[{channel.ItemTag}]";
+            AddItem(itemsFile, brige, primaryDevice, $"g{primaryDevice.Name.Escape()}", sensorName, sensor, thing, channel);
+        }
+        private static void AddItem(StreamWriter itemsFile, PhosconBridge brige, DeconzSensor primaryDevice, string strGroupName, string sensorName, DeconzSensor sensor, Thing thing, Thing.Channel channel)
+        {
+            AddItem(itemsFile, brige, primaryDevice, strGroupName, sensorName, sensor, thing, channel, brige.GetChannel(channel, thing, sensor));
+        }
+        private static void AddItem(StreamWriter itemsFile, PhosconBridge brige, DeconzSensor primaryDevice, string sensorName, DeconzSensor sensor, Thing thing, Thing.Channel channel, string strChannelAddress)
+        {
+            AddItem(itemsFile, brige, primaryDevice, $"g{primaryDevice.Name.Escape()}", sensorName, sensor, thing, channel, strChannelAddress);
+        }
+        private static void AddItem(StreamWriter itemsFile, PhosconBridge brige, DeconzSensor primaryDevice, string strGroupName, string sensorName, DeconzSensor sensor, Thing thing, Thing.Channel channel,string strChannelAddress)
+        {
+            string itemTag = (channel.SemanticModelTag?.Any() != true) ? string.Empty : $"[{string.Join(",", channel.SemanticModelTag.Select(s => $"\"{s}\""))}]";
             string alexa = string.IsNullOrEmpty(channel.AlexaTpye) ? string.Empty : "alexa=\"" + channel.AlexaTpye + "\",";
-            itemsFile.WriteLine($"{channel.ItemType} phoscon_{sensorName}_{channel.ChannelType} \"{primaryDevice.Name} {channel.ChannelType}\" (g{primaryDevice.Name.Escape()}) {itemTag} {{{alexa}channel=\"{brige.GetChannel(channel,thing,sensor)}\"}}");
+            
+            itemsFile.WriteLine($"{channel.ItemType} phoscon_{sensorName}_{channel.ChannelType} \"{primaryDevice.Name} {channel.ChannelType}\" ({strGroupName}) {itemTag} {{{alexa}channel=\"{strChannelAddress}\"}}");
         }
 
         private static DconzBridge CreateDconzBridge(Options options, StreamWriter writer)
         {
-            writer.WriteLine($"Bridge deconz:deconz:phoscon \"Phoscon Deconz-Bridge\" [ host=\"{options.PhosconURL}\", httpPort=\"{options.HTTPPort}\", apikey=\"{options.APIKey}\" ] {{");
+            writer.WriteLine($"Bridge deconz:deconz:phoscon \"deconz#0 Bridge\" [ host=\"{options.PhosconURL}\", httpPort=\"{options.HTTPPort}\", port=\"{options.WebsocketPort}\", apikey=\"{options.APIKey}\" ] {{");
 
             return new DconzBridge(writer);
         }
 
-        private static HueBridge CreateHueBridge(Options options, StreamWriter writer)
-        {
-            writer.WriteLine($"Bridge hue:bridge:phoscon \"Phoscon Hue-Bridge\" [ ipAddress=\"{options.PhosconURL}\", port=\"{options.HTTPPort}\", userName=\"{options.APIKey}\" ] {{");
-
-            return new HueBridge(writer);
-        }
+   
         private class ConfigSection : IDisposable
         {
             public StreamWriter Writer { get;  }
@@ -188,38 +205,6 @@ namespace PhosconToOpenHAB
             internal abstract bool TryAddSensor(string strSensorName, DeconzSensor sensor, out Thing thing);
         }
 
-        private class HueBridge : PhosconBridge
-        {
-            public HueBridge(StreamWriter writer)
-               : base(writer)
-            {
-
-            }
-
-            internal override bool TryAddSensor(string strSensorName, DeconzSensor sensor, out Thing thing)
-            {
-                var sensorName = strSensorName == sensor.Name ? strSensorName : $"{strSensorName} ({sensor.Name})";
-                var sensorType = sensor.Type;
-                var uniqueID = sensor.Uniqueid;
-
-                if (Thing.TryGetThing(sensorType, out thing))
-                {
-                    var itemId = uniqueID.Escape();
-                    Writer.WriteLine($"{thing.Name} {itemId} \"Phoscon {sensorName}\" [lightId=\"{sensor.Id}\"]");
-                    return true;
-                }
-                else
-                {
-                    Console.WriteLine($"Unknown sensor type {sensorType} for sensor {sensor.Id}");
-                    return false;
-                }
-            }
-
-            internal override string GetChannel(Thing.Channel channel, Thing thing, DeconzSensor sensor)
-            {
-                return $"hue:{thing.Name}:phoscon:{sensor.Uniqueid.Escape()}:{channel.ChannelType}";
-            }
-        }
         private class DconzBridge : PhosconBridge
         {
 
@@ -236,14 +221,15 @@ namespace PhosconToOpenHAB
 
             internal override bool TryAddSensor(string strSensorName, DeconzSensor sensor, out Thing thing)
             {
-                var sensorName = strSensorName == sensor.Name ? $"{strSensorName} ({sensor.Id})" : $"{strSensorName} ({sensor.Name})";
                 var sensorType = sensor.Type;
                 var uniqueID = sensor.Uniqueid;
 
                 if (Thing.TryGetThing(sensorType, out thing))
                 {
                     var itemId = uniqueID.Escape();
-                    Writer.WriteLine($"{thing.Name} {itemId} \"Phoscon {sensorName}\" [id=\"{sensor.Id}\"]");
+                    var sensorHint = thing.AlexaType != "Other" ? thing.AlexaType : thing.Name;
+                    var sensorName = strSensorName == sensor.Name ? $"{strSensorName} ({thing.Name})" : $"{strSensorName} ({sensor.Name})";
+                    Writer.WriteLine($"{thing.Name} {itemId} \"deconz#{sensor.Id} {sensorName}\" [id=\"{sensor.Id}\"]");
                     return true;
                 }
                 else
@@ -271,7 +257,7 @@ namespace PhosconToOpenHAB
         {
             var writer = CreateConfigFile(options, Path.Combine("sitemaps","phoscon.sitemap"));
 
-            writer.WriteLine("sitemap phoscon label=\"Phoscon\" {");
+            writer.WriteLine("sitemap phoscon label=\"deconz\" {");
 
             return new Sitemap(writer);
         }

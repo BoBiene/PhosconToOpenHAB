@@ -50,6 +50,11 @@ namespace PhosconToOpenHAB
                                 yield return 's';
                                 yield return 's';
                                 break;
+
+                            case 'Å':
+                                yield return 'A';
+                                yield return 'a';
+                                break;
                             default:
                                 yield return c;
                                 break;

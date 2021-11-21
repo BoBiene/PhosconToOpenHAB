@@ -19,7 +19,8 @@ namespace PhosconToOpenHAB
         [Option('p', "httpPort", Required = false, HelpText = "The httpPort", Default = "8080")]
         public string HTTPPort { get; set; } = "8080";
 
-
+        [Option('w', "webscoketPort", Required = false, HelpText = "The httpPort", Default = "")]
+        public string WebsocketPort { get; set; } = "";
 
         [Option('o', "output", Required = false, Default = "", HelpText = "Target directory to create the openHAB files in.")]
         public string OutputDir { get; set; }
