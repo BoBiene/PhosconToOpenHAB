@@ -98,8 +98,12 @@ namespace PhosconToOpenHAB
                 {
                     itemsFile.WriteLine($"//{primaryDevice.Name}");
                     var equiType = (primaryThing.EquipmentType != string.Empty) ? $"[\"{primaryThing.EquipmentType}\"] " : string.Empty;
+                    var groupGroup = !string.IsNullOrEmpty(primaryDevice.openHABGroupTag) ? $"({primaryDevice.openHABGroupTag}) " : string.Empty; 
+                    string strGroupSuffix = string.Empty;
 
-                    itemsFile.WriteLine($"Group g{primaryDevice.Name.Escape()} \"{primaryDevice.Name}\" {equiType}{{alexa=\"{primaryThing.AlexaType}\"}}");
+                    if (primaryDevice.Modelid == "lumi.weather")
+                        strGroupSuffix = " aquara";
+                    itemsFile.WriteLine($"Group g{primaryDevice.Name.Escape()} \"{primaryDevice.Name}{strGroupSuffix}\" {groupGroup}{equiType}{{alexa=\"{primaryThing.AlexaType}\"}}");
 
                     var sensorName = primaryDevice.Name.Escape();
 
