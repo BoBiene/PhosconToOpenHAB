@@ -16,7 +16,7 @@ jobs:
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 3.1.101
+        dotnet-version: 6.0.x
     - name: Install dependencies
       run: dotnet restore
     - name: Build
@@ -26,4 +26,4 @@ jobs:
       with:
         # Directory containing files to upload
         name: PhosconToOpenHAB
-        path: PhosconToOpenHAB/bin/Release/netcoreapp3.1/
+        path: PhosconToOpenHAB/bin/Release/net6/
